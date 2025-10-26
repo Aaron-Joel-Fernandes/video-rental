@@ -1,10 +1,13 @@
 package com.learning.video_rental.entity;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import jakarta.persistence.*;
 
 @Entity
 @Table(name = "videos")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Video {
 
     @Id

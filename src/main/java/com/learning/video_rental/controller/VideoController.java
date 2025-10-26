@@ -1,72 +1,50 @@
 package com.learning.video_rental.controller;
 
 import com.learning.video_rental.entity.Video;
+import com.learning.video_rental.exception.ResourceNotFoundException;
 import com.learning.video_rental.services.VideoService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/videos")
 public class VideoController {
 
-    @Autowired
-    private VideoService videoService;
+    private final VideoService svc;
+    public VideoController(VideoService svc) { this.svc = svc; }
 
-    //  Public/Customer accessible endpoint
+    @GetMapping("/available")
+    public ResponseEntity<List<Video>> available() { return ResponseEntity.ok(svc.getAvailable()); }
+
     @GetMapping
-    public ResponseEntity<List<Video>> getAllVideos() {
-        List<Video> videos = videoService.getAllVideos();
-        return ResponseEntity.ok(videos);
-    }
+    public ResponseEntity<List<Video>> all() { return ResponseEntity.ok(svc.getAll()); }
 
-    //  ADMIN only — create a new video
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @PostMapping
-    public ResponseEntity<Video> createVideo(@RequestBody Video video) {
-        Video savedVideo = videoService.createVideo(video);
-        return ResponseEntity.status(HttpStatus.CREATED).body(savedVideo);
-    }
+    public ResponseEntity<Video> create(@RequestBody Video v) { return ResponseEntity.status(HttpStatus.CREATED).body(svc.create(v)); }
 
-    // ADMIN only — update a video by ID
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateVideo(@PathVariable Long id, @RequestBody Video updatedVideo) {
-        Optional<Video> videoOpt = videoService.getVideoById(id);
-        if (videoOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Video not found");
-        }
-
-        Video existingVideo = videoOpt.get();
-        existingVideo.setTitle(updatedVideo.getTitle());
-        existingVideo.setDirector(updatedVideo.getDirector());
-        existingVideo.setGenre(updatedVideo.getGenre());
-        existingVideo.setAvailable(updatedVideo.isAvailable());
-
-        Video savedVideo = videoService.createVideo(existingVideo);
-        return ResponseEntity.ok(savedVideo);
+    public ResponseEntity<?> update(@PathVariable Long id, @RequestBody Video payload) {
+        return svc.getById(id).map(existing -> {
+            existing.setTitle(payload.getTitle());
+            existing.setDirector(payload.getDirector());
+            existing.setGenre(payload.getGenre());
+            existing.setAvailable(payload.isAvailable());
+            return ResponseEntity.ok(svc.update(existing));
+        }).orElseThrow(() -> new ResourceNotFoundException("Video not found with id: " + id));
     }
 
-    // ADMIN only — delete a video
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteVideo(@PathVariable Long id) {
-        if (!videoService.deleteVideo(id)) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Video not found");
+    public ResponseEntity<?> delete(@PathVariable Long id) {
+        if (svc.getById(id).isPresent()) {
+            svc.delete(id);
+            return ResponseEntity.ok("Deleted");
         }
-        return ResponseEntity.ok("Video deleted successfully");
-    }
-
-    //CUSTOMER & ADMIN — get a specific video
-    @GetMapping("/{id}")
-    public ResponseEntity<?> getVideoById(@PathVariable Long id) {
-        Optional<Video> video = videoService.getVideoById(id);
-        return video.<ResponseEntity<?>>map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body("Video not found"));
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Video not found");
     }
 }
