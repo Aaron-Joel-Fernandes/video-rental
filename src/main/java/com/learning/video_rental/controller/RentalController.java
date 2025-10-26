@@ -1,9 +1,7 @@
 package com.learning.video_rental.controller;
 
 
-import com.learning.video_rental.dto.VideoResponseDTO;
 import com.learning.video_rental.entity.Rental;
-import com.learning.video_rental.entity.Video;
 import com.learning.video_rental.services.RentalService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
